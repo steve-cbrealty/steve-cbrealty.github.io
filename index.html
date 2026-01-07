@@ -1,317 +1,178 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Retirement Location Finder</title>
-  <style>
-    :root { --border: rgba(0,0,0,.10); --muted: rgba(0,0,0,.04); }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #fff; color:#111; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 18px; }
-    .card { border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: #fff; }
-    h1 { margin: 0 0 6px; font-size: 28px; }
-    p { margin: 8px 0 0; line-height: 1.45; }
-
-    .q { margin: 14px 0; padding: 12px; border-radius: 12px; background: var(--muted); border: 1px solid rgba(0,0,0,.06); }
-    .q legend { font-weight: 650; padding: 0 4px; }
-    .opt { display: block; margin: 7px 0; cursor: pointer; }
-    .opt input { margin-right: 8px; }
-
-    .btnrow { display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
-    button {
-      padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(0,0,0,.18);
-      background: #111; color:#fff; cursor:pointer; font-weight: 600;
-    }
-    button.secondary { background:#fff; color:#111; }
-
-    .results { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); display:none; }
-    .topline { padding: 10px 12px; border-radius: 12px; background: var(--muted); border: 1px solid rgba(0,0,0,.06); }
-
-    .grid { display:grid; grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
-    @media (min-width: 980px){ .grid { grid-template-columns: 1.25fr 1fr; } }
-
-    table { width: 100%; border-collapse: collapse; }
-    th, td { text-align:left; padding: 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
-    th { font-size: 13px; text-transform: uppercase; letter-spacing: .03em; opacity: .75; }
-
-    .bars { display:flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-    .barrow { display:grid; grid-template-columns: 120px 1fr 55px; gap: 10px; align-items:center; }
-    .barlabel { font-size: 14px; white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
-    .bartrack { height: 14px; border-radius: 999px; background: rgba(0,0,0,.08); overflow: hidden; border: 1px solid rgba(0,0,0,.08); }
-    .barfill { height: 100%; width: 0%; background: #111; border-radius: 999px; }
-    .barpct { font-variant-numeric: tabular-nums; font-size: 14px; text-align:right; }
-
-    details { margin-top: 12px; padding: 10px 12px; border-radius: 14px; background: var(--muted); border: 1px solid rgba(0,0,0,.06); }
-    summary { cursor:pointer; font-weight: 650; }
-    .ans { margin: 10px 0; padding: 10px; border-radius: 12px; background: #fff; border: 1px solid rgba(0,0,0,.06); }
-    .footer { margin-top: 14px; font-size: 12px; opacity: .75; }
-    .err { color: #b00020; font-weight: 650; margin-top: 10px; display:none; }
-  </style>
+<meta charset="UTF-8" />
+<title>City Match Tool – Space Coast</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  .result { border: 1px solid #ccc; padding: 12px; margin: 12px 0; border-radius: 6px; }
+  .good { color: green; }
+  .warn { color: orange; }
+  .bad { color: red; }
+  .meta { font-size: 0.9em; color: #555; }
+</style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>🏖️ Retirement Location Preference Survey</h1>
-      <p>Answer the questions below, then we’ll rank retirement locations based on your preferences.</p>
 
-      <form id="rlf-form">
-        <div id="rlf-questions"></div>
+<h1>Best Matching Cities</h1>
+<button onclick="calculate()">Calculate Matches</button>
 
-        <div id="rlf-error" class="err">Please answer every question.</div>
-
-        <div class="btnrow">
-          <button type="submit">Calculate My Matches</button>
-          <button type="button" id="rlf-reset" class="secondary">Reset</button>
-          <button type="button" id="rlf-download" class="secondary" style="display:none;">Download results (CSV)</button>
-        </div>
-      </form>
-
-      <div id="rlf-results" class="results">
-        <div id="rlf-topline" class="topline"></div>
-
-        <div class="grid">
-          <div class="card">
-            <h3 style="margin:0 0 8px;">Ranked Matches</h3>
-            <div id="rlf-table"></div>
-          </div>
-
-          <div class="card">
-            <h3 style="margin:0 0 8px;">Match % Chart</h3>
-            <div id="rlf-bars" class="bars"></div>
-          </div>
-        </div>
-
-        <details>
-          <summary>See your answers</summary>
-          <div id="rlf-answers"></div>
-        </details>
-
-        <div class="footer">
-          This tool provides illustrative recommendations based on your stated preferences.
-        </div>
-      </div>
-    </div>
-  </div>
+<div id="results"></div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  // -------------------------
-  // Survey config (mirrors your Python)
-  // -------------------------
-  var QUESTIONS = [
-    { id: 1, text: "What is your current age and planned retirement age?",
-      options: { A:"Under 50, planning to retire before 60", B:"50–59, planning to retire at 60–65", C:"60–69, planning to retire soon", D:"70 or older, already retired" } },
-    { id: 2, text: "What is your annual income and expected retirement income?",
-      options: { A:"Less than $50,000", B:"$50,000–$100,000", C:"$100,000–$150,000", D:"Over $150,000" } },
-    { id: 3, text: "Do you prefer an urban, suburban, or rural environment?",
-      options: { A:"Urban (city life, cultural activities)", B:"Suburban (quiet neighborhoods, near amenities)", C:"Rural (nature, open spaces)" } },
-    { id: 4, text: "What climate do you prefer?",
-      options: { A:"Warm year-round", B:"Mild seasonal changes", C:"Four distinct seasons", D:"Cooler climate" } },
-    { id: 5, text: "What is your desired proximity to family or friends?",
-      options: { A:"Within 50 miles", B:"Within 200 miles", C:"Anywhere in the country", D:"Anywhere in the world" } },
-    { id: 6, text: "Do you require access to specialized healthcare facilities?",
-      options: { A:"Yes, frequent access to specialists", B:"Yes, occasional access", C:"No, general healthcare is sufficient" } },
-    { id: 7, text: "How important is walkability and public transportation to you?",
-      options: { A:"Very important (prefer walking and transit)", B:"Somewhat important", C:"Not important (prefer driving)" } },
-    { id: 8, text: "What hobbies or activities do you plan to pursue in retirement?",
-      options: { A:"Outdoor activities (hiking, boating, golf)", B:"Cultural activities (museums, theater, dining)", C:"Community engagement (clubs, volunteering)", D:"Quiet hobbies (reading, gardening)" } },
-    { id: 9, text: "Do you prefer a quiet community or one with active social engagement?",
-      options: { A:"Quiet and peaceful", B:"Balanced mix", C:"Active and social" } },
-    { id: 10, text: "What is your budget for housing and living expenses?",
-      options: { A:"Under $2,000/month", B:"$2,000–$4,000/month", C:"$4,000–$6,000/month", D:"Over $6,000/month" } }
-  ];
+/* ------------------------------
+   QUESTION SETUP
+-------------------------------- */
+const WEIGHT = 0.1;
 
-  var OPTION_VALUES = {
-    1:{A:1,B:2,C:3,D:4},
-    2:{A:1,B:2,C:3,D:4},
-    3:{A:3,B:2,C:1},
-    4:{A:4,B:3,C:2,D:1},
-    5:{A:4,B:3,C:2,D:1},
-    6:{A:3,B:2,C:1},
-    7:{A:3,B:2,C:1},
-    8:{A:3,B:3,C:2,D:1},
-    9:{A:1,B:2,C:3},
-    10:{A:1,B:2,C:3,D:4}
-  };
+const OPTION_VALUES = {
+  q1: { A:1, B:2, C:3, D:4 },
+  q2: { A:1, B:2, C:3, D:4 },
+  q3: { A:3, B:2, C:1 },
+  q4: { A:4, B:3, C:2, D:1 },
+  q5: { A:4, B:3, C:2, D:1 },
+  q6: { A:3, B:2, C:1 },
+  q7: { A:3, B:2, C:1 },
+  q8: { A:3, B:3, C:2, D:1 },
+  q9: { A:1, B:2, C:3 },
+  q10:{ A:1, B:2, C:3, D:4 }
+};
 
-  var MAX_DIFF = {1:3,2:3,3:2,4:3,5:3,6:2,7:2,8:2,9:2,10:3};
+const MAX_DIFF = {
+  q1:3, q2:3, q3:2, q4:3, q5:3,
+  q6:2, q7:2, q8:2, q9:2, q10:3
+};
 
-  // 10% per question
-  var WEIGHTS = {};
-  for (var i=0;i<QUESTIONS.length;i++) WEIGHTS[QUESTIONS[i].id] = 0.10;
+const TRAITS = {
+  q1:"pace of life", q2:"social activity", q3:"structure",
+  q4:"cost of living", q5:"density", q6:"climate",
+  q7:"outdoor lifestyle", q8:"cultural variety",
+  q9:"social openness", q10:"career focus"
+};
 
-  var PROFILE_DEFAULTS = {1:2.5,2:2.5,3:2.0,4:2.5,5:2.5,6:2.0,7:2.0,8:2.0,9:2.0,10:2.5};
+/* ------------------------------
+   DEFAULT PROFILE
+-------------------------------- */
+const DEFAULT = {
+  q1:2.5,q2:2.5,q3:2,q4:2.5,q5:2.5,
+  q6:2,q7:2,q8:2,q9:2,q10:2.5
+};
 
-  var PROFILE_LOCATIONS = {
-    "Florida": {4:4.0,7:2.0,8:3.0,9:3.0,10:3.0},
-    "Arizona": {4:4.0,7:2.0,8:3.0,9:2.0,10:2.5},
-    "North Carolina": {4:3.0,7:2.0,8:3.0,9:2.0,10:2.0},
-    "Colorado": {4:2.0,7:2.0,8:3.0,9:3.0,10:3.0}
-  };
-
-  function computeMatch(userValues, locationProfile){
-    var distSq = 0, maxDistSq = 0;
-    for (var qidStr in userValues){
-      if (!userValues.hasOwnProperty(qidStr)) continue;
-      var qid = parseInt(qidStr,10);
-      var uval = userValues[qid];
-      var prof = (locationProfile[qid] != null) ? locationProfile[qid] : PROFILE_DEFAULTS[qid];
-      var diff = uval - prof;
-      var w = WEIGHTS[qid];
-      distSq += w * (diff * diff);
-      maxDistSq += w * (MAX_DIFF[qid] * MAX_DIFF[qid]);
-    }
-    var distance = Math.sqrt(distSq);
-    var maxDistance = Math.sqrt(maxDistSq);
-    var matchPct = (maxDistance > 0) ? (1 - (distance / maxDistance)) * 100 : 0;
-    return { matchPct: matchPct, distance: distance };
+/* ------------------------------
+   CITY PROFILES
+-------------------------------- */
+const CITIES = {
+  "Palm Bay, FL": {
+    profile:{q1:1.75,q2:1.75,q3:1.75,q4:2,q5:1.25,q6:3,q7:2.5,q8:1.25,q9:1.25,q10:1.75},
+    age:"40s–50s",
+    family:"medium",
+    why:"Quiet pace, low density, and lifestyle-first living."
+  },
+  "Viera, FL": {
+    profile:{q1:2.75,q2:2.5,q3:3,q4:3,q5:2.25,q6:3,q7:2.25,q8:1.75,q9:2,q10:3.25},
+    age:"30s–40s",
+    family:"high",
+    why:"Planned structure with strong career and family support."
+  },
+  "Rockledge, FL": {
+    profile:{q1:2.5,q2:2.25,q3:2.5,q4:2.75,q5:2,q6:3,q7:2.25,q8:1.75,q9:1.75,q10:2.75},
+    age:"40s–50s",
+    family:"high",
+    why:"Balanced suburban life with stability and convenience."
+  },
+  "Melbourne (Mainland), FL": {
+    profile:{q1:2.75,q2:3,q3:2.5,q4:2.75,q5:2.5,q6:3,q7:2.5,q8:2.5,q9:2.25,q10:3},
+    age:"30s–40s",
+    family:"high",
+    why:"Social energy, cultural access, and strong job base."
+  },
+  "Cocoa Beach, FL": {
+    profile:{q1:3,q2:3,q3:2.5,q4:3,q5:2.5,q6:3,q7:3,q8:2.5,q9:2,q10:2.5},
+    age:"30s–40s",
+    family:"low",
+    why:"Flexible, social, and tourism-driven coastal lifestyle."
   }
+};
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, function(m){
-      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
-    });
-  }
+/* ------------------------------
+   USER ANSWERS (demo defaults)
+-------------------------------- */
+function getUserAnswers() {
+  // demo: all neutral B
+  const u = {};
+  for (let q in OPTION_VALUES) u[q] = OPTION_VALUES[q].B;
+  return u;
+}
 
-  // -------------------------
-  // DOM wiring
-  // -------------------------
-  var qWrap = document.getElementById("rlf-questions");
-  var form = document.getElementById("rlf-form");
-  var resultsEl = document.getElementById("rlf-results");
-  var toplineEl = document.getElementById("rlf-topline");
-  var tableEl = document.getElementById("rlf-table");
-  var barsEl = document.getElementById("rlf-bars");
-  var answersEl = document.getElementById("rlf-answers");
-  var resetBtn = document.getElementById("rlf-reset");
-  var dlBtn = document.getElementById("rlf-download");
-  var errEl = document.getElementById("rlf-error");
+/* ------------------------------
+   CALCULATION
+-------------------------------- */
+function calculate() {
+  const user = getUserAnswers();
+  const maxDist = Math.sqrt(Object.keys(MAX_DIFF)
+    .reduce((s,q)=>s+WEIGHT*(MAX_DIFF[q]**2),0));
 
-  // Inject questions
-  var html = "";
-  for (var q=0;q<QUESTIONS.length;q++){
-    var question = QUESTIONS[q];
-    html += '<fieldset class="q">';
-    html += '<legend>Q' + question.id + '. ' + escapeHtml(question.text) + '</legend>';
-    for (var code in question.options){
-      if (!question.options.hasOwnProperty(code)) continue;
-      html += '<label class="opt">';
-      html += '<input type="radio" name="q_' + question.id + '" value="' + code + '" required> ';
-      html += '<strong>' + code + ')</strong> ' + escapeHtml(question.options[code]);
-      html += '</label>';
-    }
-    html += '</fieldset>';
-  }
-  qWrap.innerHTML = html;
+  const output = [];
 
-  var lastRows = null;
+  for (let city in CITIES) {
+    let distSq = 0;
+    let warnings = [];
 
-  function renderTable(rows){
-    var t = '<table><thead><tr><th>#</th><th>Location</th><th>Match %</th><th>Distance</th></tr></thead><tbody>';
-    for (var i=0;i<rows.length;i++){
-      var r = rows[i];
-      t += '<tr><td>'+(i+1)+'</td><td>'+escapeHtml(r.location)+'</td><td>'+r.matchPct.toFixed(2)+'</td><td>'+r.distance.toFixed(4)+'</td></tr>';
-    }
-    t += '</tbody></table>';
-    tableEl.innerHTML = t;
-  }
+    for (let q in OPTION_VALUES) {
+      const p = CITIES[city].profile[q] ?? DEFAULT[q];
+      const diff = Math.abs(user[q] - p);
+      distSq += WEIGHT * diff * diff;
 
-  function renderBars(rows){
-    var b = "";
-    for (var i=0;i<rows.length;i++){
-      var r = rows[i];
-      var pct = Math.max(0, Math.min(100, r.matchPct));
-      b += '<div class="barrow">';
-      b +=   '<div class="barlabel" title="'+escapeHtml(r.location)+'">'+escapeHtml(r.location)+'</div>';
-      b +=   '<div class="bartrack"><div class="barfill" style="width:'+pct.toFixed(2)+'%"></div></div>';
-      b +=   '<div class="barpct">'+pct.toFixed(2)+'%</div>';
-      b += '</div>';
-    }
-    barsEl.innerHTML = b;
-  }
-
-  function renderAnswers(userCodes){
-    var a = "";
-    for (var i=0;i<QUESTIONS.length;i++){
-      var qu = QUESTIONS[i];
-      var code = userCodes[qu.id];
-      a += '<div class="ans">';
-      a +=   '<div><strong>Q'+qu.id+':</strong> '+escapeHtml(qu.text)+'</div>';
-      a +=   '<div>Selected: <strong>'+escapeHtml(code)+')</strong> '+escapeHtml(qu.options[code])+'</div>';
-      a += '</div>';
-    }
-    answersEl.innerHTML = a;
-  }
-
-  function toCSV(rows){
-    var lines = ["Location,Match %,Distance"];
-    for (var i=0;i<rows.length;i++){
-      lines.push(rows[i].location + "," + rows[i].matchPct.toFixed(2) + "," + rows[i].distance.toFixed(4));
-    }
-    return lines.join("\n");
-  }
-
-  function downloadText(filename, text){
-    var blob = new Blob([text], {type:"text/csv;charset=utf-8;"});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.parentNode.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  form.addEventListener("submit", function(e){
-    e.preventDefault();
-    errEl.style.display = "none";
-
-    var userCodes = {};
-    var userValues = {};
-
-    for (var i=0;i<QUESTIONS.length;i++){
-      var qu = QUESTIONS[i];
-      var chosen = form.querySelector('input[name="q_' + qu.id + '"]:checked');
-      if (!chosen) { errEl.style.display = "block"; return; }
-      var code = chosen.value;
-      userCodes[qu.id] = code;
-      userValues[qu.id] = OPTION_VALUES[qu.id][code];
+      if (diff >= 2) warnings.push({q, level:"bad"});
+      else if (diff >= 1.25) warnings.push({q, level:"warn"});
     }
 
-    var rows = [];
-    for (var loc in PROFILE_LOCATIONS){
-      if (!PROFILE_LOCATIONS.hasOwnProperty(loc)) continue;
-      var out = computeMatch(userValues, PROFILE_LOCATIONS[loc]);
-      rows.push({location: loc, matchPct: out.matchPct, distance: out.distance});
-    }
-    rows.sort(function(a,b){ return b.matchPct - a.matchPct; });
-    lastRows = rows;
+    const match = (1 - Math.sqrt(distSq) / maxDist) * 100;
+    output.push({city, match, warnings});
+  }
 
-    toplineEl.innerHTML = 'Top match: <strong>' + escapeHtml(rows[0].location) + '</strong> (' + rows[0].matchPct.toFixed(2) + '% match)';
-    renderTable(rows);
-    renderBars(rows);
-    renderAnswers(userCodes);
+  output.sort((a,b)=>b.match-a.match);
+  render(output);
+}
 
-    resultsEl.style.display = "block";
-    dlBtn.style.display = "inline-block";
+/* ------------------------------
+   RENDER
+-------------------------------- */
+function render(results) {
+  const div = document.getElementById("results");
+  div.innerHTML = "";
 
-    resultsEl.scrollIntoView({behavior:"smooth", block:"start"});
+  results.forEach(r => {
+    const c = CITIES[r.city];
+    const warnLevel =
+      r.warnings.length >= 3 ? "bad" :
+      r.warnings.length === 2 ? "warn" : "good";
+
+    div.innerHTML += `
+      <div class="result">
+        <h3>${r.city} — ${r.match.toFixed(1)}%</h3>
+        <p>${c.why}</p>
+
+        <p class="meta">👥 Age group: ${c.age}</p>
+        <p class="meta">👨‍👩‍👧‍👦 Family friendly: ${c.family}</p>
+
+        <p class="${warnLevel}">
+          ${warnLevel==="good"?"✅ Strong fit":
+            warnLevel==="warn"?"⚠️ Consider carefully":
+            "🚫 Potential poor fit"}
+        </p>
+
+        ${r.warnings.slice(0,3).map(w =>
+          `<p class="${w.level}">
+            ${w.level==="bad"?"🚫":"⚠️"} ${TRAITS[w.q]}
+          </p>`
+        ).join("")}
+      </div>
+    `;
   });
-
-  resetBtn.addEventListener("click", function(){
-    form.reset();
-    resultsEl.style.display = "none";
-    dlBtn.style.display = "none";
-    errEl.style.display = "none";
-    lastRows = null;
-  });
-
-  dlBtn.addEventListener("click", function(){
-    if (!lastRows) return;
-    downloadText("retirement_matches.csv", toCSV(lastRows));
-  });
-});
+}
 </script>
+
 </body>
 </html>
