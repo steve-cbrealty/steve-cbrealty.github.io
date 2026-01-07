@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>City Match Tool – Space Coast</title>
+<meta charset="UTF-8">
+<title>Space Coast City Match</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  .result { border: 1px solid #ccc; padding: 12px; margin: 12px 0; border-radius: 6px; }
+  body { font-family: Arial, sans-serif; margin: 20px; max-width: 900px; }
+  fieldset { margin-bottom: 16px; }
+  legend { font-weight: bold; }
+  label { display: block; margin: 4px 0; }
+  button { padding: 10px 16px; font-size: 16px; }
+  .result { border: 1px solid #ccc; padding: 14px; margin: 14px 0; border-radius: 6px; }
   .good { color: green; }
   .warn { color: orange; }
   .bad { color: red; }
@@ -15,34 +19,70 @@
 
 <body>
 
-<h1>Best Matching Cities</h1>
-<button onclick="calculate()">Calculate Matches</button>
+<h1>Find Your Best Matching Space Coast City</h1>
+
+<form id="quiz">
+
+<!-- QUESTIONS -->
+<script>
+const QUESTIONS = [
+  ["q1","Preferred pace of life","Slow","Moderate","Fast","Very fast"],
+  ["q2","Social activity level","Quiet","Some","Social","Very social"],
+  ["q3","Lifestyle structure","Flexible","Balanced","Structured"],
+  ["q4","Cost of living tolerance","Low","Medium","High","Very high"],
+  ["q5","Urban density preference","Spacious","Suburban","Urban","Dense city"],
+  ["q6","Climate tolerance","Mild","Warm","Hot"],
+  ["q7","Outdoor lifestyle importance","Low","Medium","High"],
+  ["q8","Cultural variety","Limited","Moderate","Rich","Very rich"],
+  ["q9","Social openness","Traditional","Moderate","Progressive"],
+  ["q10","Career focus","Lifestyle-first","Balanced","Career-driven","Highly ambitious"]
+];
+
+QUESTIONS.forEach(q=>{
+  document.write(`<fieldset><legend>${q[1]}</legend>`);
+  ["A","B","C","D"].forEach((opt,i)=>{
+    if(q[i+2]) {
+      document.write(`
+        <label>
+          <input type="radio" name="${q[0]}" value="${opt}" required>
+          ${q[i+2]}
+        </label>
+      `);
+    }
+  });
+  document.write(`</fieldset>`);
+});
+</script>
+
+<!-- AGE INPUT -->
+<fieldset>
+  <legend>Your life stage (optional)</legend>
+  <label><input type="radio" name="age" value="20s"> 20s</label>
+  <label><input type="radio" name="age" value="30s"> 30s</label>
+  <label><input type="radio" name="age" value="40s"> 40s</label>
+  <label><input type="radio" name="age" value="50s+"> 50+</label>
+</fieldset>
+
+<button type="submit">See My Matches</button>
+</form>
+
+<hr>
 
 <div id="results"></div>
 
 <script>
-/* ------------------------------
-   QUESTION SETUP
--------------------------------- */
+/* ---------- SCORING CONFIG ---------- */
 const WEIGHT = 0.1;
 
 const OPTION_VALUES = {
-  q1: { A:1, B:2, C:3, D:4 },
-  q2: { A:1, B:2, C:3, D:4 },
-  q3: { A:3, B:2, C:1 },
-  q4: { A:4, B:3, C:2, D:1 },
-  q5: { A:4, B:3, C:2, D:1 },
-  q6: { A:3, B:2, C:1 },
-  q7: { A:3, B:2, C:1 },
-  q8: { A:3, B:3, C:2, D:1 },
-  q9: { A:1, B:2, C:3 },
-  q10:{ A:1, B:2, C:3, D:4 }
+  q1:{A:1,B:2,C:3,D:4}, q2:{A:1,B:2,C:3,D:4},
+  q3:{A:3,B:2,C:1}, q4:{A:4,B:3,C:2,D:1},
+  q5:{A:4,B:3,C:2,D:1}, q6:{A:3,B:2,C:1},
+  q7:{A:3,B:2,C:1}, q8:{A:3,B:3,C:2,D:1},
+  q9:{A:1,B:2,C:3}, q10:{A:1,B:2,C:3,D:4}
 };
 
-const MAX_DIFF = {
-  q1:3, q2:3, q3:2, q4:3, q5:3,
-  q6:2, q7:2, q8:2, q9:2, q10:3
-};
+const MAX_DIFF = {q1:3,q2:3,q3:2,q4:3,q5:3,q6:2,q7:2,q8:2,q9:2,q10:3};
 
 const TRAITS = {
   q1:"pace of life", q2:"social activity", q3:"structure",
@@ -51,123 +91,111 @@ const TRAITS = {
   q9:"social openness", q10:"career focus"
 };
 
-/* ------------------------------
-   DEFAULT PROFILE
--------------------------------- */
-const DEFAULT = {
-  q1:2.5,q2:2.5,q3:2,q4:2.5,q5:2.5,
-  q6:2,q7:2,q8:2,q9:2,q10:2.5
-};
+const DEFAULT = {q1:2.5,q2:2.5,q3:2,q4:2.5,q5:2.5,q6:2,q7:2,q8:2,q9:2,q10:2.5};
 
-/* ------------------------------
-   CITY PROFILES
--------------------------------- */
+/* ---------- CITY DATA ---------- */
 const CITIES = {
   "Palm Bay, FL": {
-    profile:{q1:1.75,q2:1.75,q3:1.75,q4:2,q5:1.25,q6:3,q7:2.5,q8:1.25,q9:1.25,q10:1.75},
-    age:"40s–50s",
-    family:"medium",
+    p:{q1:1.75,q2:1.75,q3:1.75,q4:2,q5:1.25,q6:3,q7:2.5,q8:1.25,q9:1.25,q10:1.75},
+    age:"40s–50s", family:"medium",
     why:"Quiet pace, low density, and lifestyle-first living."
   },
   "Viera, FL": {
-    profile:{q1:2.75,q2:2.5,q3:3,q4:3,q5:2.25,q6:3,q7:2.25,q8:1.75,q9:2,q10:3.25},
-    age:"30s–40s",
-    family:"high",
+    p:{q1:2.75,q2:2.5,q3:3,q4:3,q5:2.25,q6:3,q7:2.25,q8:1.75,q9:2,q10:3.25},
+    age:"30s–40s", family:"high",
     why:"Planned structure with strong career and family support."
   },
   "Rockledge, FL": {
-    profile:{q1:2.5,q2:2.25,q3:2.5,q4:2.75,q5:2,q6:3,q7:2.25,q8:1.75,q9:1.75,q10:2.75},
-    age:"40s–50s",
-    family:"high",
+    p:{q1:2.5,q2:2.25,q3:2.5,q4:2.75,q5:2,q6:3,q7:2.25,q8:1.75,q9:1.75,q10:2.75},
+    age:"40s–50s", family:"high",
     why:"Balanced suburban life with stability and convenience."
   },
   "Melbourne (Mainland), FL": {
-    profile:{q1:2.75,q2:3,q3:2.5,q4:2.75,q5:2.5,q6:3,q7:2.5,q8:2.5,q9:2.25,q10:3},
-    age:"30s–40s",
-    family:"high",
+    p:{q1:2.75,q2:3,q3:2.5,q4:2.75,q5:2.5,q6:3,q7:2.5,q8:2.5,q9:2.25,q10:3},
+    age:"30s–40s", family:"high",
     why:"Social energy, cultural access, and strong job base."
   },
   "Cocoa Beach, FL": {
-    profile:{q1:3,q2:3,q3:2.5,q4:3,q5:2.5,q6:3,q7:3,q8:2.5,q9:2,q10:2.5},
-    age:"30s–40s",
-    family:"low",
-    why:"Flexible, social, and tourism-driven coastal lifestyle."
+    p:{q1:3,q2:3,q3:2.5,q4:3,q5:2.5,q6:3,q7:3,q8:2.5,q9:2,q10:2.5},
+    age:"30s–40s", family:"low",
+    why:"Flexible, social, tourism-driven coastal lifestyle."
   }
 };
 
-/* ------------------------------
-   USER ANSWERS (demo defaults)
--------------------------------- */
-function getUserAnswers() {
-  // demo: all neutral B
-  const u = {};
-  for (let q in OPTION_VALUES) u[q] = OPTION_VALUES[q].B;
-  return u;
-}
+/* ---------- FORM HANDLING ---------- */
+document.getElementById("quiz").onsubmit = e => {
+  e.preventDefault();
 
-/* ------------------------------
-   CALCULATION
--------------------------------- */
-function calculate() {
-  const user = getUserAnswers();
-  const maxDist = Math.sqrt(Object.keys(MAX_DIFF)
-    .reduce((s,q)=>s+WEIGHT*(MAX_DIFF[q]**2),0));
+  const form = new FormData(e.target);
+  const user = {};
+  for (let q in OPTION_VALUES)
+    user[q] = OPTION_VALUES[q][form.get(q)];
 
-  const output = [];
+  const userAge = form.get("age");
+  calculate(user, userAge);
+};
+
+/* ---------- CALCULATE ---------- */
+function calculate(user, userAge) {
+  const maxDist = Math.sqrt(
+    Object.keys(MAX_DIFF).reduce((s,q)=>s+WEIGHT*(MAX_DIFF[q]**2),0)
+  );
+
+  const results = [];
 
   for (let city in CITIES) {
-    let distSq = 0;
-    let warnings = [];
+    let distSq = 0, warns = [];
 
     for (let q in OPTION_VALUES) {
-      const p = CITIES[city].profile[q] ?? DEFAULT[q];
-      const diff = Math.abs(user[q] - p);
+      const diff = Math.abs(user[q] - (CITIES[city].p[q] ?? DEFAULT[q]));
       distSq += WEIGHT * diff * diff;
-
-      if (diff >= 2) warnings.push({q, level:"bad"});
-      else if (diff >= 1.25) warnings.push({q, level:"warn"});
+      if (diff >= 2) warns.push({q,level:"bad"});
+      else if (diff >= 1.25) warns.push({q,level:"warn"});
     }
 
-    const match = (1 - Math.sqrt(distSq) / maxDist) * 100;
-    output.push({city, match, warnings});
+    results.push({
+      city,
+      match:(1-Math.sqrt(distSq)/maxDist)*100,
+      warns
+    });
   }
 
-  output.sort((a,b)=>b.match-a.match);
-  render(output);
+  results.sort((a,b)=>b.match-a.match);
+  render(results, userAge);
 }
 
-/* ------------------------------
-   RENDER
--------------------------------- */
-function render(results) {
+/* ---------- RENDER ---------- */
+function render(results, userAge) {
   const div = document.getElementById("results");
   div.innerHTML = "";
 
-  results.forEach(r => {
+  results.forEach(r=>{
     const c = CITIES[r.city];
-    const warnLevel =
-      r.warnings.length >= 3 ? "bad" :
-      r.warnings.length === 2 ? "warn" : "good";
+    const level = r.warns.length>=3?"bad":r.warns.length==2?"warn":"good";
+
+    const ageNote = userAge
+      ? (c.age.includes(userAge) ? "👥 Strong age alignment" :
+         "⚠️ Different dominant age group")
+      : "";
 
     div.innerHTML += `
       <div class="result">
         <h3>${r.city} — ${r.match.toFixed(1)}%</h3>
         <p>${c.why}</p>
 
-        <p class="meta">👥 Age group: ${c.age}</p>
+        <p class="meta">👥 Age group: ${c.age} ${ageNote}</p>
         <p class="meta">👨‍👩‍👧‍👦 Family friendly: ${c.family}</p>
 
-        <p class="${warnLevel}">
-          ${warnLevel==="good"?"✅ Strong fit":
-            warnLevel==="warn"?"⚠️ Consider carefully":
+        <p class="${level}">
+          ${level==="good"?"✅ Strong fit":
+            level==="warn"?"⚠️ Consider carefully":
             "🚫 Potential poor fit"}
         </p>
 
-        ${r.warnings.slice(0,3).map(w =>
+        ${r.warns.slice(0,3).map(w =>
           `<p class="${w.level}">
             ${w.level==="bad"?"🚫":"⚠️"} ${TRAITS[w.q]}
-          </p>`
-        ).join("")}
+          </p>`).join("")}
       </div>
     `;
   });
